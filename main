@@ -1,0 +1,103 @@
+#define BUTTON_PIN  3       // Connect the button to GND and one of the pins. 
+#define NUM_MODES 4         //Update this number to the highest number of "cases"
+
+//led strip settings
+#define STRIP_PIN 8 //led pin
+#define NUMLEDS 21 //leds count
+
+#define COLOR_DEBTH 3
+#include <microLED.h>   // lib connect
+microLED<NUMLEDS, STRIP_PIN, MLED_NO_CLOCK, LED_WS2818, ORDER_GRB, CLI_AVER> strip;
+
+int ledMode = 0;
+
+byte prevKeyState = HIGH;         // button is active low
+float batteryIn;
+//------------------SETUP------------------
+void setup() {
+  Serial.begin(9600);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  strip.setBrightness(150);
+
+strip.clear();
+battVoltage();
+
+strip.show(); // apply changes
+delay(3000);
+}
+
+
+//------------------MAIN LOOP------------------
+void loop() {
+
+  byte currKeyState = digitalRead(BUTTON_PIN);
+
+  if ((prevKeyState == LOW) && (currKeyState == HIGH)) {
+    shortKeyPress();
+  }
+  prevKeyState = currKeyState;
+
+  static uint8_t startIndex = 0;
+
+  switch (ledMode) { //degub
+       case 0: rainbow();  break;
+       case 1: colorCycle();   break;
+       case 2: rainbow();  break;
+       case 3: colorCycle();  break;
+       case 4:runningDots();    break;
+                   
+  } 
+}
+
+//------------------Button Press Setup------------------
+void shortKeyPress() {
+  ledMode++;
+    if (ledMode > NUM_MODES){
+    ledMode=0; 
+  }  
+}
+//Effects
+void rainbow() {
+  static byte counter = 0;
+  for (int i = 0; i < NUMLEDS; i++) {
+    strip.set(i, mWheel8(counter + i * 255 / NUMLEDS));   // counter смещает цвет
+  }
+  counter += 3;   // counter имеет тип byte и при достижении 255 сбросится в 0
+  strip.show();
+  delay(20);
+}
+void colorCycle() {
+  static byte counter = 0;
+  strip.fill(mWheel8(counter));
+  counter += 3;
+   strip.show();
+  delay(30);
+}
+void runningDots() {
+  static byte counter = 0;
+  // перемотка буфера со сдвигом (иллюзия движения пикселей)
+  for (int i = 0; i < NUMLEDS - 1; i++) strip.leds[i] = strip.leds[i + 1];
+
+  // каждый третий вызов - последний пиксель красным, иначе чёрным
+  if (counter % 3 == 0) strip.leds[NUMLEDS - 1] = mRed;
+  else strip.leds[NUMLEDS - 1] = mBlack;
+  counter++;
+  delay(100);  
+  strip.show();
+}
+
+//battery functions
+void battVoltage(){
+    batteryIn = analogRead(0); //read current voltage in a0 pin
+    float battVoltage = batteryIn * 5.0 / 1023.0; 
+    if(battVoltage >= 3.9 ){ //fill led green color if battery voltage > 3.9
+      strip.fill(mGreen);
+    } else if(battVoltage >= 3.5  && battVoltage <= 3.8 ) ////fill led yellow color if battery voltage > 3.5 and < 3.8
+    {
+      strip.fill(mYellow);
+    } else{
+      strip.fill(mRed); //else fill led red collor
+    }
+    Serial.println(battVoltage); //
+}
